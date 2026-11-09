@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">El Archivista</string>
+    <string name="subtitulo">Copias de seguridad cifradas de tus apps</string>
+
+    <!-- Pantalla principal -->
+    <string name="estado_conectado">● Modo avanzado conectado: los APK se localizan con «pm path»</string>
+    <string name="estado_desconectado">○ Sin Modo Avanzado: se usará el gestor de paquetes de Android. Toca para configurarlo</string>
+    <string name="estado_no_disponible">○ Modo avanzado no disponible (necesita Android 11 o superior): se usará el gestor de paquetes</string>
+    <string name="menu_backup">📦 Crear copia de seguridad</string>
+    <string name="menu_backup_desc">Elige tus apps, ponle una contraseña y guarda un archivo .bkp cifrado donde quieras.</string>
+    <string name="btn_crear_copia">Crear Copia de Seguridad</string>
+    <string name="menu_restaurar">♻ Restaurar copia</string>
+    <string name="menu_restaurar_desc">Abre un archivo .bkp, descífralo con su contraseña e instala de nuevo las apps.</string>
+    <string name="btn_restaurar_copia">Restaurar Copia</string>
+    <string name="aviso_principal">Solo se guardan los APK (las apps), no sus datos: sin permisos de root, Android no deja leer la carpeta interna de otras apps. Tras restaurar, las apps arrancan como recién instaladas.</string>
+    <string name="ayuda_principal_titulo">El Archivista</string>
+    <string name="ayuda_principal">El Archivista guarda los instaladores (APK) de tus apps en un único archivo .bkp cifrado con AES-256 y una contraseña que eliges tú, y los vuelve a instalar cuando lo necesites.\n\nNo copia los datos internos de las apps (partidas, chats, ajustes): sin root, Android no lo permite.\n\nEl archivo se guarda con el selector de archivos del sistema, así que tú decides dónde (memoria, tarjeta, nube). Sin la contraseña no hay forma de abrirlo.</string>
+
+    <!-- Copia -->
+    <string name="backup_titulo">Crear copia de seguridad</string>
+    <string name="backup_cargando">Cargando tus apps…</string>
+    <string name="backup_sin_apps">No hay apps de usuario instaladas.</string>
+    <string name="backup_paso_apps">Apps que se guardarán</string>
+    <string name="seleccion_todas">Todas</string>
+    <string name="seleccion_ninguna">Ninguna</string>
+    <string name="resumen_seleccion">%1$d apps seleccionadas · %2$s</string>
+    <string name="detalle_app">%1$s · %2$s</string>
+    <string name="backup_paso_clave">Contraseña de la copia</string>
+    <string name="hint_contrasena">Contraseña</string>
+    <string name="hint_repetir">Repite la contraseña</string>
+    <string name="aviso_contrasena">Es obligatoria y no se guarda en ningún sitio. Si la olvidas, la copia no se puede recuperar. Mínimo 8 caracteres.</string>
+    <string name="btn_iniciar">Iniciar</string>
+    <string name="btn_cancelar">Cancelar</string>
+    <string name="err_sin_seleccion">Marca al menos una app.</string>
+    <string name="err_contrasena_corta">La contraseña debe tener al menos 8 caracteres.</string>
+    <string name="err_contrasenas_distintas">Las dos contraseñas no coinciden.</string>
+    <string name="aviso_destino_cancelado">No se eligió dónde guardar la copia.</string>
+    <string name="copia_ok">✔ Copia creada: %1$d apps (%2$d APK, %3$s). Archivo cifrado: %4$s.\nGuarda bien la contraseña: sin ella no se puede abrir.</string>
+    <string name="copia_origen">APK localizados: %1$d con «pm path» (Modo Avanzado), %2$d con el gestor de paquetes.</string>
+    <string name="copia_omitidas">No se pudieron leer y se omitieron: %1$s.</string>
+    <string name="copia_cancelada">Copia cancelada. No se ha guardado nada.</string>
+    <string name="ayuda_backup_titulo">Crear copia</string>
+    <string name="ayuda_backup">Marca las apps, escribe la contraseña dos veces y pulsa «Iniciar». Android te pedirá dónde guardar el archivo «backup_fecha.bkp».\n\nLas apps del sistema no aparecen. Si activas el Modo Avanzado, los APK se localizan con «pm path»; sin él se usa el gestor de paquetes de Android y el resultado es el mismo.\n\nSolo se guardan los APK, no los datos de las apps. Durante la copia mantén la pantalla encendida: se bloquea sola mientras la app está abierta, pero si sales de ella el sistema puede detener el proceso.</string>
+
+    <!-- Fases -->
+    <string name="fase_localizando">Localizando los APK…</string>
+    <string name="fase_copiando">Copiando APK</string>
+    <string name="fase_derivando">Preparando la clave (tarda un par de segundos)…</string>
+    <string name="fase_cifrando">Cifrando y guardando</string>
+    <string name="fase_descifrando">Descifrando</string>
+    <string name="fase_extrayendo">Extrayendo APK</string>
+
+    <!-- Errores -->
+    <string name="error_sin_apks">No se pudo leer el APK de ninguna de las apps elegidas.</string>
+    <string name="error_sin_espacio">No hay espacio libre suficiente para el trabajo temporal (hacen falta unos %1$s).</string>
+    <string name="error_no_es_copia">Ese archivo no es una copia de El Archivista.</string>
+    <string name="error_copia_incompleta">La copia está incompleta o dañada.</string>
+    <string name="error_contrasena">Contraseña incorrecta, o el archivo está dañado.</string>
+    <string name="error_generico">Error: %1$s</string>
+
+    <!-- Restauración -->
+    <string name="restaurar_titulo">Restaurar copia</string>
+    <string name="restaurar_paso_archivo">1. Elige el archivo .bkp</string>
+    <string name="btn_elegir_archivo">Elegir archivo…</string>
+    <string name="archivo_elegido">Archivo: %1$s</string>
+    <string name="restaurar_paso_clave">2. Escribe su contraseña</string>
+    <string name="hint_contrasena_copia">Contraseña de la copia</string>
+    <string name="btn_descifrar">Descifrar y extraer</string>
+    <string name="restaurar_apps_titulo">3. Apps de la copia (%1$d)</string>
+    <string name="btn_instalar_todas">Instalar todas</string>
+    <string name="btn_instalar">Instalar</string>
+    <string name="estado_pendiente">Sin instalar</string>
+    <string name="estado_instalando">Instalando… confirma en la pantalla del sistema</string>
+    <string name="estado_instalada">✔ Instalada</string>
+    <string name="estado_no_instalada">✖ No se instaló</string>
+    <string name="restaurar_ocupado">Ya hay una instalación en curso.</string>
+    <string name="app_varios_apk">%1$d APK (app dividida)</string>
+    <string name="permiso_instalar_titulo">Permiso para instalar apps</string>
+    <string name="permiso_instalar_texto">Android exige que permitas a El Archivista instalar apps. Se abrirá su pantalla de ajustes: activa «Permitir de esta fuente», vuelve atrás y pulsa Instalar otra vez.</string>
+    <string name="btn_ajustes">Abrir ajustes</string>
+    <string name="restaurar_nota">Las apps se instalan con el instalador del sistema, que te pedirá confirmar cada una. Si una app ya está instalada con otra firma, Android rechazará la actualización.</string>
+    <string name="ayuda_restaurar_titulo">Restaurar copia</string>
+    <string name="ayuda_restaurar">Elige un archivo .bkp creado con El Archivista. Si no empieza por la cabecera «VIGIABKP1», la app lo rechaza sin intentar abrirlo.\n\nEscribe la contraseña: se descifra y se extraen los APK a una carpeta temporal. Después puedes instalar cada app o todas seguidas; Android te pedirá confirmar cada instalación. Los APK temporales se borran al salir de esta pantalla.\n\nSolo se restauran las apps, no sus datos.</string>
+</resources>
