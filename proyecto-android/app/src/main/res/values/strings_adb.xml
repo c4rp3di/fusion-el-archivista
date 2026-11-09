@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="titulo_modo_adb">Modo avanzado</string>
+    <string name="aviso_modo_adb">Permite a esta app ejecutar órdenes de shell en este mismo teléfono usando su depuración inalámbrica. Necesita Android 11 o superior y una red wifi. La librería que lo hace no ha pasado una auditoría de seguridad, así que solo se usa para esto. Puedes olvidar el emparejamiento cuando quieras.</string>
+    <string name="adb_no_disponible">El modo avanzado necesita Android 11 o superior.</string>
+    <string name="adb_comprobando">Comprobando la conexión…</string>
+    <string name="adb_conectado">Conectado: la app puede ejecutar órdenes.</string>
+    <string name="adb_sin_conexion">Sin conexión con el modo avanzado.</string>
+    <string name="adb_emparejando">Emparejando…</string>
+    <string name="adb_emparejado_ok">Emparejado. Ahora pulsa «Conectar».</string>
+    <string name="adb_emparejar_fallo">No se pudo emparejar. Comprueba el puerto y el código, y que la pantalla de emparejamiento siga abierta (el código caduca al cerrarla).</string>
+    <string name="adb_conectando">Conectando…</string>
+    <string name="adb_conectar_fallo">No se pudo conectar. Comprueba que la depuración inalámbrica sigue activada y que estás en una red wifi.</string>
+    <string name="adb_datos_invalidos">Escribe el puerto (hasta 5 cifras) y, para emparejar, el código de 6 dígitos que muestra Android.</string>
+    <string name="adb_paso1_titulo">1. Emparejar (una sola vez)</string>
+    <string name="adb_paso1">Conecta el móvil a una red wifi. En Opciones de desarrollador activa «Depuración inalámbrica», entra y pulsa «Vincular dispositivo con código de sincronización»: verás un código de 6 dígitos y una dirección con un puerto (los números tras los dos puntos). Escríbelos aquí. Usa la pantalla dividida o una ventana flotante para ver ambas pantallas a la vez: si sales de la de Android, el código caduca.</string>
+    <string name="abrir_desarrollo">Abrir opciones de desarrollador</string>
+    <string name="hint_puerto_par">Puerto de emparejamiento</string>
+    <string name="hint_codigo_par">Código de 6 dígitos</string>
+    <string name="emparejar">Emparejar</string>
+    <string name="adb_paso2_titulo">2. Conectar</string>
+    <string name="adb_paso2">Con la depuración inalámbrica activada, pulsa «Conectar»: la app intenta detectar sola el puerto de conexión. Si no lo consigue, escribe el que aparece en la pantalla principal de Depuración inalámbrica, junto a «Dirección IP y puerto» (los números tras los dos puntos; es distinto del de emparejamiento). Tendrás que volver a conectar cada vez que reinicies el teléfono o cambies de red wifi.</string>
+    <string name="hint_puerto_con">Puerto de conexión (solo si no se detecta solo)</string>
+    <string name="conectar">Conectar</string>
+    <string name="olvidar_emparejamiento">Olvidar el emparejamiento</string>
+    <string name="confirmar_olvidar">Se borrarán las claves de esta app para el modo avanzado. Para volver a usarlo tendrás que emparejar de nuevo. Conviene también quitar la app de los dispositivos vinculados en la depuración inalámbrica de Android.</string>
+    <string name="olvidar">Olvidar</string>
+    <string name="ayuda_modo_adb_titulo">Modo avanzado</string>
+    <string name="ayuda_modo_adb">Una app normal no puede leer los registros del sistema ni parar procesos de otras apps. La depuración inalámbrica de Android sí puede, y este modo la usa en este mismo teléfono.\n\nEmparejas una vez con el código que muestra Android y después conectas cuando quieras. Si se reinicia el teléfono o cambias de wifi, la conexión se pierde y hay que volver a pulsar «Conectar». Cuando no lo uses, conviene apagar la depuración inalámbrica.</string>
+</resources>
