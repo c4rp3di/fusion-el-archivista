@@ -1,0 +1,26 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        // Solo para la librería de ADB (Modo avanzado): el filtro impide que JitPack sirva dependencias de otros autores.
+        maven {
+            url 'https://jitpack.io'
+            content {
+                // La librería y sus dependencias se publican en grupos que empiezan igual
+                // (por ejemplo com.github.MuntashirAkon.spake2-java): se admiten todos y ningún otro.
+                includeGroupByRegex 'com\\.github\\.MuntashirAkon(\\..*)?'
+            }
+        }
+    }
+}
+
+rootProject.name = "app"
+include ':app'
