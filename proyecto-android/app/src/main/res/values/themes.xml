@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema oscuro fijo (no sigue el modo claro del sistema), con los mismos componentes Material 3 que Task Master. -->
+    <style name="Theme.Suite" parent="Theme.Material3.Dark.NoActionBar" />
+</resources>
