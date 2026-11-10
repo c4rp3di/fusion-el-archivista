@@ -22,6 +22,7 @@ class AdaptadorApps(
         val nombre: TextView = vista.findViewById(R.id.appNombre)
         val detalle: TextView = vista.findViewById(R.id.appDetalle)
         val marca: CheckBox = vista.findViewById(R.id.appMarca)
+        val escudo: TextView = vista.findViewById(R.id.appEscudo)
     }
 
     override fun onCreateViewHolder(padre: ViewGroup, tipo: Int): Fila {
@@ -36,6 +37,11 @@ class AdaptadorApps(
         fila.icono.setImageDrawable(app.icono)
         fila.nombre.text = app.etiqueta
         fila.detalle.text = fila.itemView.context.getString(R.string.detalle_app, app.paquete, Formato.bytes(app.tamano))
+        var etiquetas = ""
+        if (app.permiteBackup) etiquetas += "🛡 "
+        if (app.depurable) etiquetas += "🐞"
+        fila.escudo.text = etiquetas
+        fila.escudo.visibility = if (etiquetas.isEmpty()) View.GONE else View.VISIBLE
         fila.marca.isChecked = seleccion.contains(app.paquete)
         fila.itemView.setOnClickListener {
             if (seleccion.contains(app.paquete)) seleccion.remove(app.paquete) else seleccion.add(app.paquete)
