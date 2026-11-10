@@ -36,6 +36,11 @@ class MainActivity : ActividadBase() {
             }
         )
         contenedor.addView(
+            tarjetaAccion(R.string.menu_archivos, R.string.menu_archivos_desc, R.string.btn_archivar) {
+                startActivity(Intent(this, ArchivosActivity::class.java))
+            }
+        )
+        contenedor.addView(
             tarjetaAccion(R.string.menu_restaurar, R.string.menu_restaurar_desc, R.string.btn_restaurar_copia) {
                 startActivity(Intent(this, RestauracionActivity::class.java))
             }
