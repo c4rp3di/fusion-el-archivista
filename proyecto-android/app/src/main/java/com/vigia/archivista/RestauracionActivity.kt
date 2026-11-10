@@ -154,6 +154,26 @@ class RestauracionActivity : ActividadBase() {
         ContextCompat.registerReceiver(
             this, receptor, IntentFilter(InstaladorApks.ACCION_RESULTADO), ContextCompat.RECEIVER_NOT_EXPORTED
         )
+
+        // Abierto desde otra app («Abrir con El Archivista»): solo la primera vez, no al recrearse.
+        if (savedInstanceState == null) abrirDesdeIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (trabajo == null) abrirDesdeIntent(intent)
+    }
+
+    /** Recoge el .bkp que llega por ACTION_VIEW o ACTION_SEND; el sistema da permiso de lectura mientras esta pantalla viva. */
+    private fun abrirDesdeIntent(i: Intent?) {
+        if (i == null) return
+        val uri: Uri? = when (i.action) {
+            Intent.ACTION_VIEW -> i.data
+            Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(i, Intent.EXTRA_STREAM, Uri::class.java)
+            else -> null
+        }
+        if (uri != null) archivoElegido(uri)
     }
 
     override fun onDestroy() {
