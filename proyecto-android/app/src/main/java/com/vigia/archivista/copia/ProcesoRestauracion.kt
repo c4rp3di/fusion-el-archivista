@@ -21,6 +21,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import kotlin.coroutines.coroutineContext
 
 /** Una app de la copia con sus APK ya extraídos (varios si la app usa «splits»). */
@@ -32,10 +33,28 @@ class AppRestaurable(val paquete: String, val etiqueta: String, val apks: List<F
     }
 }
 
-/** Restaura: comprueba la cabecera mágica, descifra con CifradoFlujo y extrae los APK a una carpeta temporal. */
+/** Un archivo no-APK de la copia: no se extrae, se queda en el contenedor descifrado y se lee desde [desplazamiento]. */
+class EntradaIndice(
+    val clave: String,
+    val tipo: TipoArchivo,
+    val etiqueta: String,
+    val nombre: String,
+    val desplazamiento: Long,
+    val tamano: Long
+)
+
+/** Copia descifrada: los APK ya extraídos y el índice del resto, que se restaura cuando la persona lo pide. */
+class CopiaAbierta(val contenedor: File, val apps: List<AppRestaurable>, val extras: List<EntradaIndice>)
+
+/**
+ * Restaura: comprueba la cabecera mágica, descifra con CifradoFlujo hacia un contenedor temporal y lo recorre. Los APK se
+ * extraen a una carpeta temporal; lo demás (datos, Xiaomi, archivos personales) se lee del contenedor cuando se necesita.
+ * Se leen las copias VBK2 y también las VBK1 antiguas, que solo traían APK.
+ */
 object ProcesoRestauracion {
 
     private const val CARPETA = "restauracion"
+    private const val CONTENEDOR = "contenedor_descifrado.tmp"
 
     fun carpetaApks(c: Context): File = File(c.cacheDir, CARPETA)
 
@@ -66,10 +85,31 @@ object ProcesoRestauracion {
         return Pair(nombre, tam)
     }
 
-    /** Borra los APK extraídos y los temporales. Se llama al salir de la pantalla. */
+    /** Borra los APK extraídos, el contenedor descifrado y los temporales. Se llama al salir de la pantalla. */
     fun limpiar(c: Context) {
         carpetaApks(c).deleteRecursively()
-        File(c.cacheDir, "restaurando.tmp").delete()
+        File(c.cacheDir, CONTENEDOR).delete()
+        AdbArchivos.limpiar(c)
+    }
+
+    /** Lee los bytes de [e] dentro del contenedor. */
+    fun abrirRegion(copia: CopiaAbierta, e: EntradaIndice): InputStream {
+        val entrada = FileInputStream(copia.contenedor)
+        try {
+            Tar.saltar(entrada, e.desplazamiento)
+        } catch (ex: Exception) {
+            entrada.close()
+            throw IOException("la copia descifrada está incompleta")
+        }
+        return BufferedInputStream(Tar.Exacto(entrada, e.tamano, e.etiqueta) { }, 65536)
+    }
+
+    /** Copia los bytes de [e] a un archivo (para pasárselo al shell). */
+    fun volcarA(copia: CopiaAbierta, e: EntradaIndice, destino: File) {
+        destino.parentFile?.mkdirs()
+        abrirRegion(copia, e).use { entrada ->
+            FileOutputStream(destino).use { salida -> entrada.copyTo(salida, 65536) }
+        }
     }
 
     /**
@@ -82,10 +122,11 @@ object ProcesoRestauracion {
         uri: Uri,
         contrasena: CharArray,
         alProgreso: (Progreso) -> Unit
-    ): List<AppRestaurable> = withContext(Dispatchers.IO) {
+    ): CopiaAbierta = withContext(Dispatchers.IO) {
         val trabajo = coroutineContext.job
-        val temporal = File(c.cacheDir, "restaurando.tmp")
+        val contenedor = File(c.cacheDir, CONTENEDOR)
         var clave: ByteArray? = null
+        var correcto = false
         try {
             val tamArchivo = nombreYTamano(c, uri).second
             if (tamArchivo > 0 && c.cacheDir.usableSpace < tamArchivo * 2L + 8L * 1024L * 1024L) {
@@ -106,7 +147,7 @@ object ProcesoRestauracion {
                 clave = k
                 trabajo.ensureActive()
 
-                // Descifrar con CifradoFlujo hacia un archivo temporal.
+                // Descifrar con CifradoFlujo hacia el contenedor temporal.
                 var ultimo = 0L
                 val leida = EntradaControlada(entrada) { total ->
                     trabajo.ensureActive()
@@ -117,7 +158,7 @@ object ProcesoRestauracion {
                     }
                 }
                 try {
-                    BufferedOutputStream(FileOutputStream(temporal), 65536).use { salida ->
+                    BufferedOutputStream(FileOutputStream(contenedor), 65536).use { salida ->
                         CifradoFlujo.descifrar(leida, salida, k)
                     }
                 } catch (e: CancellationException) {
@@ -130,42 +171,46 @@ object ProcesoRestauracion {
                 }
             }
 
-            extraer(c, temporal, alProgreso, trabajo)
+            val copia = indexar(c, contenedor, alProgreso, trabajo)
+            correcto = true
+            copia
         } finally {
             clave?.fill(0)
-            temporal.delete()
+            if (!correcto) contenedor.delete()
         }
     }
 
-    private fun extraer(
-        c: Context,
-        paquete: File,
-        alProgreso: (Progreso) -> Unit,
-        trabajo: Job
-    ): List<AppRestaurable> {
+    private fun indexar(c: Context, contenedor: File, alProgreso: (Progreso) -> Unit, trabajo: Job): CopiaAbierta {
         val raiz = carpetaApks(c)
         raiz.mkdirs()
         val porPaquete = LinkedHashMap<String, MutableList<File>>()
         val etiquetas = HashMap<String, String>()
+        val extras = ArrayList<EntradaIndice>()
         try {
-            DataInputStream(BufferedInputStream(FileInputStream(paquete), 65536)).use { d ->
-                if (d.readInt() != FormatoBkp.MAGIA_INTERNA) throw ArchivoNoValido(c.getString(R.string.error_no_es_copia))
+            val cuenta = EntradaContada(BufferedInputStream(FileInputStream(contenedor), 65536))
+            DataInputStream(cuenta).use { d ->
+                val magia = d.readInt()
+                val v2 = magia == FormatoBkp.MAGIA_INTERNA
+                if (!v2 && magia != FormatoBkp.MAGIA_INTERNA_V1) throw ArchivoNoValido(c.getString(R.string.error_no_es_copia))
                 val n = d.readInt()
                 if (n < 1 || n > FormatoBkp.MAX_ARCHIVOS) throw ArchivoNoValido(c.getString(R.string.error_copia_incompleta))
                 val buffer = ByteArray(65536)
                 for (i in 0 until n) {
                     trabajo.ensureActive()
-                    val pkg = d.readUTF()
-                    val etiqueta = d.readUTF()
-                    val nombre = d.readUTF()
-                    var restante = d.readLong()
-                    if (restante < 0) throw ArchivoNoValido(c.getString(R.string.error_copia_incompleta))
-                    alProgreso(Progreso(R.string.fase_extrayendo, etiqueta, i.toFloat() / n))
-
+                    val e = FormatoBkp.leerEntrada(d, v2)
+                    alProgreso(Progreso(R.string.fase_extrayendo, e.etiqueta, i.toFloat() / n))
+                    if (e.tipo != TipoArchivo.APK) {
+                        // Se deja en el contenedor: solo se anota dónde empieza.
+                        if (e.tamano > 0) {
+                            extras.add(EntradaIndice(e.clave, e.tipo, e.etiqueta, e.nombre, cuenta.posicion, e.tamano))
+                        }
+                        Tar.saltar(d, e.tamano)
+                        continue
+                    }
                     // Los nombres vienen del archivo: se sanean para que nada pueda escribir fuera de la carpeta temporal.
-                    val carpeta = File(raiz, sanear(pkg))
+                    val carpeta = File(raiz, sanear(e.clave))
                     carpeta.mkdirs()
-                    var base = sanear(File(nombre).name)
+                    var base = sanear(File(e.nombre).name)
                     if (!base.endsWith(".apk")) base += ".apk"
                     var destino = File(carpeta, base)
                     var contador = 1
@@ -173,6 +218,7 @@ object ProcesoRestauracion {
                         destino = File(carpeta, contador.toString() + "_" + base)
                         contador++
                     }
+                    var restante = e.tamano
                     FileOutputStream(destino).use { salida ->
                         while (restante > 0) {
                             trabajo.ensureActive()
@@ -183,18 +229,20 @@ object ProcesoRestauracion {
                             restante -= r
                         }
                     }
-                    porPaquete.getOrPut(pkg) { ArrayList() }.add(destino)
-                    etiquetas[pkg] = etiqueta
+                    porPaquete.getOrPut(e.clave) { ArrayList() }.add(destino)
+                    etiquetas[e.clave] = e.etiqueta
                 }
             }
         } catch (e: EOFException) {
             throw ArchivoNoValido(c.getString(R.string.error_copia_incompleta))
+        } catch (e: IllegalArgumentException) {
+            throw ArchivoNoValido(c.getString(R.string.error_copia_incompleta))
         }
-        val res = ArrayList<AppRestaurable>()
+        val apps = ArrayList<AppRestaurable>()
         for ((pkg, ficheros) in porPaquete) {
-            res.add(AppRestaurable(pkg, etiquetas[pkg] ?: pkg, ficheros))
+            apps.add(AppRestaurable(pkg, etiquetas[pkg] ?: pkg, ficheros))
         }
-        return res
+        return CopiaAbierta(contenedor, apps, extras)
     }
 
     private fun sanear(texto: String): String {
