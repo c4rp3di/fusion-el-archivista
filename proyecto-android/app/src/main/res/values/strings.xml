@@ -13,9 +13,14 @@
     <string name="menu_restaurar">♻ Restaurar copia</string>
     <string name="menu_restaurar_desc">Abre un archivo .bkp, descífralo con su contraseña e instala de nuevo las apps.</string>
     <string name="btn_restaurar_copia">Restaurar Copia</string>
-    <string name="aviso_principal">Solo se guardan los APK (las apps), no sus datos: sin permisos de root, Android no deja leer la carpeta interna de otras apps. Tras restaurar, las apps arrancan como recién instaladas.</string>
+    <string name="aviso_principal">Una copia de apps guarda los APK; los datos de las apps solo se incluyen si activas el Modo Avanzado (datos externos, run-as) o la copia de Xiaomi. Las copias de apps y las de archivos personales son archivos .bkp distintos, cada uno con su contraseña.</string>
     <string name="ayuda_principal_titulo">El Archivista</string>
-    <string name="ayuda_principal">El Archivista guarda los instaladores (APK) de tus apps en un único archivo .bkp cifrado con AES-256 y una contraseña que eliges tú, y los vuelve a instalar cuando lo necesites.\n\nNo copia los datos internos de las apps (partidas, chats, ajustes): sin root, Android no lo permite.\n\nEl archivo se guarda con el selector de archivos del sistema, así que tú decides dónde (memoria, tarjeta, nube). Sin la contraseña no hay forma de abrirlo.</string>
+    <string name="ayuda_principal">El Archivista guarda tus apps y tus archivos en archivos .bkp cifrados con AES-256 y una contraseña que eliges tú. Sin la contraseña no hay forma de abrirlos.
+
+• Copia de apps: los APK de las apps que marques. Con el Modo Avanzado puedes añadir sus datos externos (Android/data y obb), sus datos internos si son apps depurables (run-as) y los archivos de la copia de Xiaomi.
+• Archivos personales: carpetas que eliges con el selector del sistema (fotos, documentos, descargas), sin necesitar el Modo Avanzado.
+
+Sin root, Android no deja leer la carpeta interna de otras apps: los datos internos solo salen con run-as (apps depurables) o con la copia de Xiaomi.</string>
 
     <!-- Copia -->
     <string name="backup_titulo">Crear copia de seguridad</string>
@@ -82,4 +87,66 @@
     <string name="restaurar_nota">Las apps se instalan con el instalador del sistema, que te pedirá confirmar cada una. Si una app ya está instalada con otra firma, Android rechazará la actualización.</string>
     <string name="ayuda_restaurar_titulo">Restaurar copia</string>
     <string name="ayuda_restaurar">Elige un archivo .bkp creado con El Archivista. Si no empieza por la cabecera «VIGIABKP1», la app lo rechaza sin intentar abrirlo.\n\nEscribe la contraseña: se descifra y se extraen los APK a una carpeta temporal. Después puedes instalar cada app o todas seguidas; Android te pedirá confirmar cada instalación. Los APK temporales se borran al salir de esta pantalla.\n\nSolo se restauran las apps, no sus datos.</string>
+
+    <!-- Principal: tercera tarjeta -->
+    <string name="menu_archivos">📂 Archivar archivos personales</string>
+    <string name="menu_archivos_desc">Elige carpetas (fotos, documentos, descargas) y guárdalas cifradas en un .bkp, sin necesitar el Modo Avanzado.</string>
+    <string name="btn_archivar">Archivar Archivos</string>
+
+    <!-- Copia de apps: datos adicionales -->
+    <string name="backup_paso_datos">Datos adicionales (Modo Avanzado)</string>
+    <string name="cb_externos">Incluir datos externos de las apps (Android/data y obb)</string>
+    <string name="cb_internos">Incluir datos internos de apps depurables (run-as)</string>
+    <string name="cb_xiaomi">Incluir datos de apps vía Xiaomi (com.miui.backup)</string>
+    <string name="opciones_requieren_modo">Estas opciones solo se activan con el Modo Avanzado conectado. 🛡 = la app admite copia nativa; 🐞 = depurable (run-as).</string>
+    <string name="opciones_xiaomi_no">La app de copias de Xiaomi no está instalada: la opción de Xiaomi no está disponible. 🛡 = copia nativa permitida; 🐞 = depurable.</string>
+    <string name="opciones_listas">🛡 = la app admite copia nativa de Android; 🐞 = depurable, admite run-as. Los datos adicionales pueden ocupar mucho espacio.</string>
+    <string name="aviso_sin_modo_avanzado">Se pidieron datos adicionales pero el Modo Avanzado no estaba conectado: solo se guardaron los APK.</string>
+    <string name="aviso_datos_externos_fallo">No se pudo buscar los datos externos (%1$s).</string>
+    <string name="aviso_no_depurables">%1$d apps no son depurables: sus datos internos no se pueden copiar con run-as.</string>
+    <string name="fase_preparando">Preparando</string>
+    <string name="fase_buscando_datos">Buscando datos externos…</string>
+    <string name="fase_explorando">Explorando carpeta</string>
+    <string name="copia_datos">Incluye: %1$d de datos externos, %2$d de datos internos (run-as) y %3$d archivos de Xiaomi.</string>
+    <string name="error_sin_almacenamiento">No hay almacenamiento externo disponible para el trabajo temporal.</string>
+    <string name="error_sin_archivos">No hay ningún archivo que copiar en las carpetas elegidas.</string>
+
+    <!-- Xiaomi -->
+    <string name="xiaomi_titulo">Copia de Xiaomi</string>
+    <string name="xiaomi_mensaje">Se ha abierto la app de copias de Xiaomi. Haz allí la copia de las apps que quieras y vuelve aquí. Cuando termine, pulsa «Ya he terminado».</string>
+    <string name="xiaomi_listo">Ya he terminado</string>
+    <string name="xiaomi_detectados">Archivos nuevos detectados: %1$d (%2$s)</string>
+    <string name="xiaomi_nada">No se encontró ningún archivo nuevo de la copia de Xiaomi. Comprueba que terminó y vuelve a intentarlo.</string>
+    <string name="xiaomi_no_abre">No se pudo abrir la app de copias de Xiaomi: %1$s</string>
+
+    <!-- Archivos personales -->
+    <string name="archivos_titulo">Archivar archivos personales</string>
+    <string name="archivos_paso_carpetas">Carpetas a guardar</string>
+    <string name="btn_anadir_carpeta">Añadir carpeta…</string>
+    <string name="archivos_vacio">Aún no has elegido ninguna carpeta.</string>
+    <string name="btn_quitar">Quitar</string>
+    <string name="err_sin_carpetas">Añade al menos una carpeta.</string>
+    <string name="archivos_ok">✔ Copia creada: %1$d carpetas, %2$d archivos (%3$s). Archivo cifrado: %4$s.\nGuarda bien la contraseña: sin ella no se puede abrir.</string>
+    <string name="archivos_omitidos">%1$d archivos se omitieron porque su proveedor no informa de su tamaño.</string>
+    <string name="ayuda_archivos_titulo">Archivos personales</string>
+    <string name="ayuda_archivos">Añade las carpetas que quieras con «Añadir carpeta» (Android te pedirá permiso para cada una), escribe la contraseña dos veces y pulsa «Iniciar». Android te preguntará dónde guardar el archivo «archivos_fecha.bkp».\n\nLos archivos se cifran sobre la marcha, sin crear copias temporales, así que sirve para vídeos de varios GB. Mantén la app abierta hasta que termine.\n\nAl restaurar, elegirás la carpeta donde volcar los archivos.</string>
+
+    <!-- Restauración: datos adicionales -->
+    <string name="restaurar_extras_titulo">Datos adicionales de la copia</string>
+    <string name="extra_externos">Datos externos (Android/data y obb) · %1$s</string>
+    <string name="extra_internos">Datos internos con run-as · %1$s</string>
+    <string name="extra_xiaomi">Copia de Xiaomi: %1$d archivos · %2$s</string>
+    <string name="extra_personal">Archivos personales · %1$s</string>
+    <string name="btn_restaurar_extra">Restaurar con Modo Avanzado</string>
+    <string name="btn_restaurar_xiaomi">Devolver a Xiaomi y abrirla</string>
+    <string name="btn_restaurar_personal">Elegir carpeta y restaurar</string>
+    <string name="estado_restaurando">Restaurando…</string>
+    <string name="estado_restaurando_bytes">Restaurando… %1$s</string>
+    <string name="estado_restaurado">✔ Restaurado</string>
+    <string name="estado_fallo">✖ %1$s</string>
+    <string name="err_requiere_modo">Esto necesita el Modo Avanzado conectado.</string>
+    <string name="err_app_no_instalada">Instala primero la app (arriba) y vuelve a intentarlo.</string>
+    <string name="restaurado_xiaomi">✔ Archivos devueltos a la carpeta de Xiaomi. Termina la restauración en su app.</string>
+    <string name="restaurado_personal">✔ %1$d archivos restaurados (%2$s).</string>
+    <string name="restaurar_nota_extras">Los datos externos e internos se restauran mejor con la app ya instalada. Los datos internos solo funcionan con apps depurables.</string>
 </resources>
