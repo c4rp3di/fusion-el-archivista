@@ -43,8 +43,36 @@
         <activity
             android:name=".RestauracionActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize">
+            <!-- «Abrir con El Archivista» desde gestores de archivos, descargas, correo, etc. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.bkp" />
+                <data android:pathPattern=".*\\..*\\.bkp" />
+                <data android:pathPattern=".*\\..*\\..*\\.bkp" />
+            </intent-filter>
+            <!-- Muchos gestores no envían la extensión en la ruta: se acepta el tipo genérico y la app comprueba la cabecera. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/x-vigia-bkp" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/x-vigia-bkp" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".adb.ModoAvanzadoActivity"
