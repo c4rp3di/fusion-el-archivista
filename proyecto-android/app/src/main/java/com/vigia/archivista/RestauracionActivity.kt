@@ -21,9 +21,17 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.vigia.archivista.copia.AdbArchivos
 import com.vigia.archivista.copia.AppRestaurable
 import com.vigia.archivista.copia.ArchivoNoValido
 import com.vigia.archivista.copia.ContrasenaIncorrecta
+import com.vigia.archivista.copia.CopiaAbierta
+import com.vigia.archivista.copia.EntradaIndice
+import com.vigia.archivista.copia.ExtractorDatosExternos
+import com.vigia.archivista.copia.ExtractorRunAs
+import com.vigia.archivista.copia.OrquestadorXiaomi
+import com.vigia.archivista.copia.RestauracionSaf
+import com.vigia.archivista.copia.TipoArchivo
 import com.vigia.archivista.copia.ErrorCopia
 import com.vigia.archivista.copia.InstaladorApks
 import com.vigia.archivista.copia.ProcesoRestauracion
@@ -36,6 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /** Pantalla de restauración: elegir .bkp, contraseña, descifrar, extraer los APK e instalarlos con el instalador del sistema. */
 class RestauracionActivity : ActividadBase() {
@@ -53,6 +62,8 @@ class RestauracionActivity : ActividadBase() {
     private lateinit var tituloApps: TextView
     private lateinit var listaApps: LinearLayout
     private lateinit var nota: TextView
+    private lateinit var tituloExtras: TextView
+    private lateinit var listaExtras: LinearLayout
 
     private var archivo: Uri? = null
     private var apps: List<AppRestaurable> = emptyList()
@@ -62,9 +73,20 @@ class RestauracionActivity : ActividadBase() {
     private var instalando: AppRestaurable? = null
     private var huellaAntes = -1L
     private var trabajo: Job? = null
+    private var copia: CopiaAbierta? = null
+    private var ocupadoExtra = false
+    private var extraPendiente: EntradaIndice? = null
+    private var estadoPendiente: TextView? = null
 
     private val lanzadorElegir = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) archivoElegido(uri)
+    }
+
+    /** Carpeta de destino de los archivos personales. */
+    private val lanzadorDestino = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val entrada = extraPendiente
+        val estado = estadoPendiente
+        if (uri != null && entrada != null && estado != null) restaurarPersonal(entrada, estado, uri)
     }
 
     /** Se llama cuando el instalador del sistema (ACTION_VIEW) se cierra, se haya instalado o no. */
@@ -115,6 +137,8 @@ class RestauracionActivity : ActividadBase() {
         tituloApps = findViewById(R.id.tituloApps)
         listaApps = findViewById(R.id.listaRestaurables)
         nota = findViewById(R.id.notaRestaurar)
+        tituloExtras = findViewById(R.id.tituloExtras)
+        listaExtras = findViewById(R.id.listaExtras)
 
         btnElegir.setOnClickListener { lanzadorElegir.launch(arrayOf("*/*")) }
         btnDescifrar.setOnClickListener { descifrar() }
@@ -175,12 +199,14 @@ class RestauracionActivity : ActividadBase() {
         ocupado(true)
         trabajo = lifecycleScope.launch {
             try {
-                val lista = ProcesoRestauracion.descifrarYExtraer(applicationContext, uri, clave) { p ->
+                val abierta = ProcesoRestauracion.descifrarYExtraer(applicationContext, uri, clave) { p ->
                     runOnUiThread { pintarProgreso(p) }
                 }
+                copia = abierta
                 etContrasena.setText("")
                 cardClave.visibility = View.GONE
-                mostrarApps(lista)
+                mostrarApps(abierta.apps)
+                mostrarExtras(abierta.extras)
             } catch (e: CancellationException) {
                 mostrarResultado(getString(R.string.copia_cancelada))
                 throw e
@@ -205,6 +231,7 @@ class RestauracionActivity : ActividadBase() {
         estados.clear()
         instaladas.clear()
         listaApps.removeAllViews()
+        if (lista.isEmpty()) return
         tituloApps.text = getString(R.string.restaurar_apps_titulo, lista.size)
         tituloApps.visibility = View.VISIBLE
         btnInstalarTodas.visibility = View.VISIBLE
@@ -286,15 +313,169 @@ class RestauracionActivity : ActividadBase() {
         }
     }
 
+
+    // ---- Datos adicionales: externos, internos, Xiaomi y archivos personales ----
+
+    private fun mostrarExtras(extras: List<EntradaIndice>) {
+        listaExtras.removeAllViews()
+        if (extras.isEmpty()) return
+        tituloExtras.visibility = View.VISIBLE
+        nota.text = (if (apps.isNotEmpty()) getString(R.string.restaurar_nota) + "\n\n" else "") + getString(R.string.restaurar_nota_extras)
+        nota.visibility = View.VISIBLE
+        val xiaomi = ArrayList<EntradaIndice>()
+        for (e in extras) {
+            if (e.tipo == TipoArchivo.BAK_XIAOMI) {
+                xiaomi.add(e)
+                continue
+            }
+            val par = Ui.tarjetaConColumna(this)
+            val columna = par.second
+            val tam = Formato.bytes(e.tamano)
+            val titulo = when (e.tipo) {
+                TipoArchivo.DATOS_EXTERNOS -> getString(R.string.extra_externos, tam)
+                TipoArchivo.DATOS_INTERNOS -> getString(R.string.extra_internos, tam)
+                else -> getString(R.string.extra_personal, tam)
+            }
+            columna.addView(Ui.titulo(this, e.etiqueta))
+            columna.addView(Ui.texto(this, titulo, 12f))
+            val estado = Ui.texto(this, "", 13f, true)
+            columna.addView(estado)
+            when (e.tipo) {
+                TipoArchivo.DATOS_EXTERNOS -> columna.addView(Ui.botonSecundario(this, getString(R.string.btn_restaurar_extra)) { restaurarExternos(e, estado) })
+                TipoArchivo.DATOS_INTERNOS -> columna.addView(Ui.botonSecundario(this, getString(R.string.btn_restaurar_extra)) { restaurarInternos(e, estado) })
+                else -> columna.addView(Ui.botonSecundario(this, getString(R.string.btn_restaurar_personal)) {
+                    if (!ocupadoExtra) {
+                        extraPendiente = e
+                        estadoPendiente = estado
+                        lanzadorDestino.launch(null)
+                    }
+                })
+            }
+            listaExtras.addView(par.first)
+        }
+        if (xiaomi.isNotEmpty()) {
+            var total = 0L
+            for (e in xiaomi) total += e.tamano
+            val par = Ui.tarjetaConColumna(this)
+            val columna = par.second
+            columna.addView(Ui.titulo(this, "Xiaomi"))
+            columna.addView(Ui.texto(this, getString(R.string.extra_xiaomi, xiaomi.size, Formato.bytes(total)), 12f))
+            val estado = Ui.texto(this, "", 13f, true)
+            columna.addView(estado)
+            columna.addView(Ui.botonSecundario(this, getString(R.string.btn_restaurar_xiaomi)) { restaurarXiaomi(xiaomi, estado) })
+            listaExtras.addView(par.first)
+        }
+    }
+
+    /**
+     * Ejecuta una restauración de datos adicionales fuera del hilo principal. El bloque devuelve (éxito, texto); un fallo
+     * inesperado se muestra en la propia tarjeta. Solo se hace una a la vez.
+     */
+    private fun ejecutarExtra(estado: TextView, exigeShell: Boolean, bloque: suspend (CopiaAbierta) -> Pair<Boolean, String>) {
+        val abierta = copia ?: return
+        if (ocupadoExtra) {
+            aviso(R.string.restaurar_ocupado)
+            return
+        }
+        if (exigeShell && !AdbArchivos.conectado()) {
+            estado.setText(R.string.err_requiere_modo)
+            return
+        }
+        ocupadoExtra = true
+        estado.setText(R.string.estado_restaurando)
+        lifecycleScope.launch {
+            var correcto = false
+            var texto = ""
+            try {
+                val r = withContext(Dispatchers.IO) { bloque(abierta) }
+                correcto = r.first
+                texto = r.second
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                texto = e.message ?: e.javaClass.simpleName
+            } finally {
+                ocupadoExtra = false
+            }
+            estado.text = if (correcto) texto else getString(R.string.estado_fallo, texto)
+        }
+    }
+
+    private fun restaurarExternos(e: EntradaIndice, estado: TextView) {
+        ejecutarExtra(estado, true) { abierta ->
+            val tmp = File(AdbArchivos.dirTemporal(applicationContext), e.clave + "_ext.tar")
+            try {
+                ProcesoRestauracion.volcarA(abierta, e, tmp)
+                val fallo = ExtractorDatosExternos.restaurar(tmp)
+                if (fallo == null) Pair(true, getString(R.string.estado_restaurado)) else Pair(false, fallo)
+            } finally {
+                tmp.delete()
+            }
+        }
+    }
+
+    private fun restaurarInternos(e: EntradaIndice, estado: TextView) {
+        ejecutarExtra(estado, true) { abierta ->
+            if (InstaladorApks.huella(applicationContext, e.clave) == -1L) {
+                Pair(false, getString(R.string.err_app_no_instalada))
+            } else {
+                val tmp = File(AdbArchivos.dirTemporal(applicationContext), e.clave + "_data.tgz")
+                try {
+                    ProcesoRestauracion.volcarA(abierta, e, tmp)
+                    val fallo = ExtractorRunAs.restaurar(e.clave, tmp)
+                    if (fallo == null) Pair(true, getString(R.string.estado_restaurado)) else Pair(false, fallo)
+                } finally {
+                    tmp.delete()
+                }
+            }
+        }
+    }
+
+    private fun restaurarXiaomi(lista: List<EntradaIndice>, estado: TextView) {
+        ejecutarExtra(estado, true) { abierta ->
+            val temporales = ArrayList<File>()
+            try {
+                val pares = ArrayList<Pair<String, File>>()
+                for (i in lista.indices) {
+                    val f = File(AdbArchivos.dirTemporal(applicationContext), "xiaomi_restaurar_" + i + ".bin")
+                    ProcesoRestauracion.volcarA(abierta, lista[i], f)
+                    temporales.add(f)
+                    pares.add(Pair(lista[i].clave, f))
+                }
+                val fallo = OrquestadorXiaomi.restaurar(applicationContext, pares)
+                if (fallo == null) Pair(true, getString(R.string.restaurado_xiaomi)) else Pair(false, fallo)
+            } finally {
+                for (f in temporales) f.delete()
+            }
+        }
+    }
+
+    private fun restaurarPersonal(e: EntradaIndice, estado: TextView, destino: Uri) {
+        ejecutarExtra(estado, false) { abierta ->
+            var ultimo = 0L
+            val r = RestauracionSaf.extraer(applicationContext, abierta, e, destino) { bytes ->
+                if (bytes - ultimo > 4L * 1024L * 1024L) {
+                    ultimo = bytes
+                    runOnUiThread { estado.text = getString(R.string.estado_restaurando_bytes, Formato.bytes(bytes)) }
+                }
+            }
+            Pair(true, getString(R.string.restaurado_personal, r.archivos, Formato.bytes(r.bytes)))
+        }
+    }
+
     private fun limpiarResultados() {
         textoResultado.visibility = View.GONE
         tituloApps.visibility = View.GONE
         btnInstalarTodas.visibility = View.GONE
         nota.visibility = View.GONE
+        nota.setText(R.string.restaurar_nota)
         listaApps.removeAllViews()
+        listaExtras.removeAllViews()
+        tituloExtras.visibility = View.GONE
         estados.clear()
         instaladas.clear()
         apps = emptyList()
+        copia = null
     }
 
     private fun mostrarResultado(texto: String) {
