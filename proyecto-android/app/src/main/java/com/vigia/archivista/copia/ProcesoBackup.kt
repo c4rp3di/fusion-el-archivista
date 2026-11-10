@@ -2,24 +2,17 @@ package com.vigia.archivista.copia
 
 import android.content.Context
 import android.net.Uri
-import android.provider.DocumentsContract
 import com.vigia.archivista.R
-import com.vigia.archivista.core.Formato
-import com.vigia.archivista.seguridad.CifradoFlujo
-import com.vigia.archivista.seguridad.DerivarClave
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.DataOutputStream
 import java.io.File
 import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
 import kotlin.coroutines.coroutineContext
+
+/** Qué más se incluye además de los APK. [xiaomi] son los archivos que la app de Xiaomi acaba de crear. */
+class OpcionesBackup(val externos: Boolean, val internos: Boolean, val xiaomi: List<OrquestadorXiaomi.Remoto>)
 
 class ResultadoBackup(
     val apps: Int,
@@ -28,38 +21,43 @@ class ResultadoBackup(
     val bytesFinal: Long,
     val omitidas: List<String>,
     val porShell: Int,
-    val porGestor: Int
+    val porGestor: Int,
+    val externos: Int,
+    val internos: Int,
+    val xiaomi: Int,
+    val avisos: List<String>
 )
 
 /**
- * Crea la copia: a) localiza los APK (ShellManager «pm path»), b) los junta en un archivo temporal, c) lo cifra con
- * CifradoFlujo y la clave derivada de la contraseña y d) lo escribe en el destino elegido con el selector de archivos
- * del sistema. Solo se copian los APK: los datos internos de las apps no son accesibles sin root.
+ * Copia de apps: a) localiza los APK (ShellManager «pm path»), b) los suma a lo que haya pedido la persona (datos externos,
+ * datos internos con run-as, archivos de Xiaomi), c) lo cifra con CifradoFlujo y la contraseña y d) lo escribe en el
+ * destino elegido con el selector de archivos del sistema.
  */
 object ProcesoBackup {
-
-    private class ArchivoApk(val paquete: String, val etiqueta: String, val fichero: File)
 
     suspend fun ejecutar(
         c: Context,
         apps: List<AppInfo>,
         contrasena: CharArray,
         destino: Uri,
+        opciones: OpcionesBackup,
         alProgreso: (Progreso) -> Unit
     ): ResultadoBackup = withContext(Dispatchers.IO) {
         val trabajo = coroutineContext.job
-        val temporal = File(c.cacheDir, "copia_en_curso.tmp")
-        var terminado = false
-        var clave: ByteArray? = null
+        val avisos = ArrayList<String>()
+        val aviso: (String) -> Unit = { avisos.add(it) }
+        var usoShellParaDatos = false
         try {
             // a) Localizar los APK de cada app.
             alProgreso(Progreso(R.string.fase_localizando, "", -1f))
             val rutas = FuenteApks.resolver(c, apps.map { it.paquete })
             trabajo.ensureActive()
 
-            val archivos = ArrayList<ArchivoApk>()
+            val items = ArrayList<Item>()
             val omitidas = ArrayList<String>()
-            var appsOk = 0
+            val aceptadas = ArrayList<AppInfo>()
+            var totalApks = 0L
+            var nApks = 0
             for (app in apps) {
                 val lista = rutas.porPaquete[app.paquete]
                 val ficheros = lista?.map { File(it) }
@@ -67,100 +65,75 @@ object ProcesoBackup {
                     omitidas.add(app.etiqueta)
                     continue
                 }
-                for (f in ficheros) archivos.add(ArchivoApk(app.paquete, app.etiqueta, f))
-                appsOk++
+                aceptadas.add(app)
+                for (f in ficheros) {
+                    val tam = f.length()
+                    totalApks += tam
+                    nApks++
+                    items.add(Item(app.paquete, TipoArchivo.APK, app.etiqueta, f.name, tam) { Fuente(f.length(), FileInputStream(f)) })
+                }
             }
-            if (archivos.isEmpty()) throw ErrorCopia(c.getString(R.string.error_sin_apks))
-            var totalApks = 0L
-            for (a in archivos) totalApks += a.fichero.length()
-            if (c.cacheDir.usableSpace < totalApks + 8L * 1024L * 1024L) {
-                throw ErrorCopia(c.getString(R.string.error_sin_espacio, Formato.bytes(totalApks)))
-            }
+            if (items.isEmpty()) throw ErrorCopia(c.getString(R.string.error_sin_apks))
 
-            // b) Copiar los APK a un archivo temporal.
-            var copiados = 0L
-            var ultimoAviso = 0L
-            DataOutputStream(BufferedOutputStream(FileOutputStream(temporal), 65536)).use { d ->
-                d.writeInt(FormatoBkp.MAGIA_INTERNA)
-                d.writeInt(archivos.size)
-                val buffer = ByteArray(65536)
-                for (a in archivos) {
-                    val tam = a.fichero.length()
-                    d.writeUTF(a.paquete)
-                    d.writeUTF(a.etiqueta)
-                    d.writeUTF(a.fichero.name)
-                    d.writeLong(tam)
-                    var restante = tam
-                    FileInputStream(a.fichero).use { entrada ->
-                        while (restante > 0) {
-                            trabajo.ensureActive()
-                            val n = entrada.read(buffer, 0, minOf(buffer.size.toLong(), restante).toInt())
-                            if (n < 0) throw IOException("el APK de " + a.etiqueta + " cambió mientras se copiaba")
-                            d.write(buffer, 0, n)
-                            restante -= n
-                            copiados += n
-                            if (copiados - ultimoAviso > 262144L) {
-                                ultimoAviso = copiados
-                                alProgreso(Progreso(R.string.fase_copiando, a.etiqueta, copiados.toFloat() / totalApks))
-                            }
+            // b) Datos adicionales, solo con el Modo Avanzado.
+            var nExternos = 0
+            var nInternos = 0
+            var nXiaomi = 0
+            val quiereShell = opciones.externos || opciones.internos || opciones.xiaomi.isNotEmpty()
+            if (quiereShell && !AdbArchivos.conectado()) {
+                avisos.add(c.getString(R.string.aviso_sin_modo_avanzado))
+            } else if (quiereShell) {
+                usoShellParaDatos = true
+                if (opciones.externos) {
+                    alProgreso(Progreso(R.string.fase_buscando_datos, "", -1f))
+                    val existentes = try {
+                        ExtractorDatosExternos.detectar(aceptadas.map { it.paquete })
+                    } catch (e: Exception) {
+                        avisos.add(c.getString(R.string.aviso_datos_externos_fallo, e.message ?: e.javaClass.simpleName))
+                        emptyMap()
+                    }
+                    for (app in aceptadas) {
+                        val rutasExt = existentes[app.paquete] ?: continue
+                        items.add(Item(app.paquete, TipoArchivo.DATOS_EXTERNOS, app.etiqueta, app.paquete + "_ext.tar.gz", 0L) {
+                            val f = ExtractorDatosExternos.capturar(c, app.paquete, rutasExt, aviso)
+                            if (f.tamano > 0) nExternos++
+                            f
+                        })
+                    }
+                }
+                if (opciones.internos) {
+                    var noDepurables = 0
+                    for (app in aceptadas) {
+                        if (!app.depurable) {
+                            noDepurables++
+                            continue
                         }
+                        items.add(Item(app.paquete, TipoArchivo.DATOS_INTERNOS, app.etiqueta, app.paquete + "_data.tgz", 0L) {
+                            val f = ExtractorRunAs.capturar(c, app.paquete, aviso)
+                            if (f.tamano > 0) nInternos++
+                            f
+                        })
                     }
+                    if (noDepurables > 0) avisos.add(c.getString(R.string.aviso_no_depurables, noDepurables))
+                }
+                for (i in opciones.xiaomi.indices) {
+                    val remoto = opciones.xiaomi[i]
+                    items.add(Item(remoto.clave, TipoArchivo.BAK_XIAOMI, remoto.clave.substringAfterLast('/'), remoto.clave.substringAfterLast('/'), remoto.tamano) {
+                        val f = OrquestadorXiaomi.capturar(c, remoto, i, aviso)
+                        if (f.tamano > 0) nXiaomi++
+                        f
+                    })
                 }
             }
 
-            // c) Cifrar el paquete con CifradoFlujo.
-            alProgreso(Progreso(R.string.fase_derivando, "", -1f))
-            val sal = DerivarClave.nuevaSal()
-            val k = DerivarClave.derivar(contrasena, sal, DerivarClave.ITERACIONES)
-            clave = k
-            trabajo.ensureActive()
-
-            // d) Guardar el archivo final en el destino elegido.
-            val tamPaquete = temporal.length()
-            var escritos = 0L
-            val salidaSistema = c.contentResolver.openOutputStream(destino, "wt")
-                ?: throw IOException("no se pudo abrir el destino")
-            val salida = BufferedOutputStream(salidaSistema, 65536)
-            var cifradoOk = false
-            try {
-                FormatoBkp.escribirCabecera(salida, DerivarClave.ITERACIONES, sal)
-                val controlada = SalidaControlada(salida) { total ->
-                    trabajo.ensureActive()
-                    if (total - escritos > 262144L) {
-                        escritos = total
-                        alProgreso(Progreso(R.string.fase_cifrando, "", total.toFloat() / (tamPaquete + 1L)))
-                    }
-                }
-                BufferedInputStream(FileInputStream(temporal), 65536).use { entrada: InputStream ->
-                    CifradoFlujo.cifrar(entrada, controlada, k)
-                }
-                salida.flush()
-                cifradoOk = true
-            } finally {
-                try {
-                    salida.close()
-                } catch (e: IOException) {
-                    // Un fallo al cerrar solo importa si el cifrado terminó bien: entonces la copia puede estar incompleta.
-                    if (cifradoOk) throw e
-                }
-            }
-            val bytesFinal = try {
-                c.contentResolver.openFileDescriptor(destino, "r")?.use { it.statSize } ?: -1L
-            } catch (e: Exception) {
-                -1L
-            }
-            terminado = true
-            ResultadoBackup(appsOk, archivos.size, totalApks, bytesFinal, omitidas, rutas.porShell, rutas.porGestor)
+            // c) y d) Cifrar y guardar.
+            val tamFinal = Empaquetador.cifrarA(c, items, contrasena, destino, alProgreso)
+            ResultadoBackup(
+                aceptadas.size, nApks, totalApks, tamFinal, omitidas, rutas.porShell, rutas.porGestor,
+                nExternos, nInternos, nXiaomi, avisos
+            )
         } finally {
-            clave?.fill(0)
-            temporal.delete()
-            if (!terminado) {
-                try {
-                    DocumentsContract.deleteDocument(c.contentResolver, destino)
-                } catch (e: Exception) {
-                    // El documento puede no existir aún o el proveedor no permitir borrarlo.
-                }
-            }
+            if (usoShellParaDatos) AdbArchivos.limpiar(c)
         }
     }
 }
