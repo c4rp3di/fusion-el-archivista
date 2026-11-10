@@ -47,7 +47,7 @@ class ConexionAdb private constructor(
 
     override fun getCertificate(): Certificate = certificado
 
-    override fun getDeviceName(): String = "Archivista"
+    override fun getDeviceName(): String = "Vigia"
 
     companion object {
         private const val CLAVE = "clave_privada"
@@ -78,7 +78,7 @@ class ConexionAdb private constructor(
             val algoritmo = "SHA512withRSA"
             val ahora = Date()
             val caduca = Date(System.currentTimeMillis() + 3650L * 86_400_000L)
-            val sujeto = X500Name("CN=Archivista")
+            val sujeto = X500Name("CN=Vigia")
 
             val extensiones = CertificateExtensions()
             extensiones.set("SubjectKeyIdentifier", SubjectKeyIdentifierExtension(KeyIdentifier(publica).getIdentifier()))
